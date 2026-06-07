@@ -11,7 +11,7 @@
    So pausing is simply "stop calling simulate()", which freezes everything.
 ---------------------------------------------------------------------- */
 
-import { BOARD, PHYSICS, FLIPPER, BUMPER, SLINGSHOT } from "../config/settings.ts";
+import { BOARD, PHYSICS, FLIPPER, BUMPER, SLINGSHOT, EFFECTS } from "../config/settings.ts";
 import { Input } from "./Input.ts";
 import { GameState } from "./GameState.ts";
 import { Vector2 } from "../physics/Vector2.ts";
@@ -48,6 +48,9 @@ export class Game {
   best = loadBestScore();
   /** True when the just-finished game beat the best score. */
   isNewBest = false;
+
+  /** Current screen-shake strength (px), decays over time. */
+  private shake = 0;
 
   private walls: Wall[];
   private leftFlipper: Flipper;
@@ -114,6 +117,7 @@ export class Game {
   private launchBall(): void {
     this.ball.pos = new Vector2(W / 2 + (Math.random() * 120 - 60), 90);
     this.ball.vel = new Vector2(Math.random() * 160 - 80, 0);
+    this.ball.clearTrail(); // no streak from the old position
   }
 
   /** Ball was lost: spend a life, then either re-launch or end the game. */
@@ -145,6 +149,8 @@ export class Game {
   update(dt: number): void {
     this.handleInput();
     if (this.state === GameState.Playing) this.simulate(dt);
+    // Screen-shake settles over time, in every state.
+    this.shake = Math.max(0, this.shake - EFFECTS.shakeDecay * dt);
     this.input.endFrame(); // clear one-shot key presses
   }
 
@@ -211,6 +217,7 @@ export class Game {
             this.score.add(bumper.points);
             bumper.hit();
             this.audio.play("bumper");
+            this.shake = Math.min(EFFECTS.shakeMax, this.shake + EFFECTS.shakeOnBumper);
           }
         }
       }
@@ -234,6 +241,9 @@ export class Game {
 
     if (wallHit) this.audio.play("bounce");
 
+    // Record one trail point per frame (not per sub-step).
+    this.ball.pushTrail();
+
     // Stand all targets back up once the whole row is down (plays a chime).
     if (this.targets.every((t) => !t.active)) {
       for (const target of this.targets) target.active = true;
@@ -249,15 +259,25 @@ export class Game {
   // --------------------------------------------------------------------
 
   render(ctx: CanvasRenderingContext2D): void {
+    // Background fills the whole canvas first (drawn WITHOUT shake) so the
+    // shake offset never reveals a gap at the edges.
     drawBackground(ctx);
-    drawGrid(ctx);
 
+    // Apply screen-shake to the board + entities only (HUD stays steady).
+    const dx = this.shake ? (Math.random() * 2 - 1) * this.shake : 0;
+    const dy = this.shake ? (Math.random() * 2 - 1) * this.shake : 0;
+    ctx.save();
+    ctx.translate(dx, dy);
+
+    drawGrid(ctx);
     for (const wall of this.walls) wall.render(ctx);
     for (const target of this.targets) target.render(ctx);
     for (const sling of this.slingshots) sling.render(ctx);
     for (const bumper of this.bumpers) bumper.render(ctx);
     for (const flipper of this.flippers) flipper.render(ctx);
     this.ball.render(ctx); // off-screen when not in play → invisible
+
+    ctx.restore();
 
     drawScanlines(ctx);
 

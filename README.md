@@ -9,6 +9,8 @@ Built with TypeScript, the HTML5 Canvas API, and a custom 2D physics engine.
 
 ![status](https://img.shields.io/badge/status-MVP%20complete-39ff14)
 
+### ▶️ Play now: **https://yammegumi.github.io/neon-lazarski-pinball/**
+
 ## 🕹️ About
 
 Neon Pinball is a synthwave-themed pinball game. Launch the ball, work the
@@ -30,6 +32,10 @@ all rendered with real-time light effects on the HTML5 Canvas.
 - [x] Sound effects
 - [x] Multiple obstacle types (bumpers, targets, slingshots)
 - [x] Pause / resume
+
+**Polish**
+- [x] Ball motion trail
+- [x] Screen shake on bumper hits
 
 **Planned (post-MVP)**
 - [ ] Particle effects
@@ -96,16 +102,41 @@ This repo deploys automatically via GitHub Actions on every push to `main`.
 ## 📁 Project Structure
 
 ```
-src/
-├─ main.ts          # Entry point — sets up canvas, starts the loop
-├─ style.css        # Page + (later) HUD/screen styling
-├─ core/            # Game loop, state machine, input
-├─ physics/         # Vector math + collision detection (later stages)
-├─ entities/        # Ball, flippers, bumpers, targets… (later stages)
-├─ board/           # Board layout (later stages)
-├─ systems/         # Score, lives, audio, storage (later stages)
-├─ ui/              # Rendering helpers, HUD, screens
-└─ config/          # All tunable gameplay values
+neon-lazarski-pinball/
+├─ index.html               # Canvas + overlay screens (start/pause/game over)
+├─ vite.config.ts           # base path for GitHub Pages
+├─ scripts/
+│  └─ generate-sounds.mjs    # synthesizes the .wav sound effects
+├─ public/
+│  └─ sounds/                # the generated SFX (bundled on build)
+└─ src/
+   ├─ main.ts               # Entry point — canvas, loop, audio unlock
+   ├─ style.css             # Page + HUD/overlay styling
+   ├─ core/
+   │  ├─ Game.ts            # The whole game: state machine + board
+   │  ├─ GameState.ts       # Start / Playing / Paused / GameOver
+   │  ├─ Loop.ts            # Fixed-timestep game loop
+   │  └─ Input.ts           # Keyboard (held + edge-triggered)
+   ├─ physics/
+   │  ├─ Vector2.ts         # 2D vector math
+   │  └─ collisions.ts      # circle/segment collision + response
+   ├─ entities/
+   │  ├─ Ball.ts            # ball + motion trail
+   │  ├─ Flipper.ts         # rotating flipper with kick
+   │  ├─ Bumper.ts          # pop bumpers
+   │  ├─ Target.ts          # drop targets
+   │  ├─ Slingshot.ts       # angled kickers
+   │  └─ Wall.ts            # board walls
+   ├─ systems/
+   │  ├─ ScoreSystem.ts     # score
+   │  ├─ LivesSystem.ts     # lives
+   │  ├─ AudioManager.ts    # Web Audio SFX
+   │  └─ Storage.ts         # best score (LocalStorage)
+   ├─ ui/
+   │  ├─ render.ts          # neon draw helpers (grid, glow, HUD)
+   │  └─ screens.ts         # show/hide HTML overlays
+   └─ config/
+      └─ settings.ts        # ALL tunable values in one place
 ```
 
 ## 🔮 Future Development

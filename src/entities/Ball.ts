@@ -16,10 +16,24 @@ export class Ball {
   vel: Vector2;
   radius: number;
 
+  /** Recent positions (oldest first) used to draw a fading motion trail. */
+  private trail: Vector2[] = [];
+
   constructor(pos: Vector2, vel: Vector2 = new Vector2(0, 0), radius: number = BALL.radius) {
     this.pos = pos;
     this.vel = vel;
     this.radius = radius;
+  }
+
+  /** Record the current position for the trail. Call once per frame. */
+  pushTrail(): void {
+    this.trail.push(this.pos.clone());
+    if (this.trail.length > BALL.trailLength) this.trail.shift();
+  }
+
+  /** Wipe the trail (e.g. when a new ball is launched). */
+  clearTrail(): void {
+    this.trail = [];
   }
 
   /** Apply gravity to the velocity and cap the speed.
@@ -44,8 +58,22 @@ export class Ball {
     this.pos = this.pos.add(this.vel.scale(dt));
   }
 
-  /** Draw the ball: an outer glow plus a bright highlighted core. */
+  /** Draw the ball: a fading trail, then an outer glow + bright core. */
   render(ctx: CanvasRenderingContext2D): void {
+    // Trail first, so the ball draws on top. Additive blending makes the
+    // overlapping circles glow like a light streak.
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.fillStyle = COLORS.cyan;
+    for (let i = 0; i < this.trail.length; i++) {
+      const t = (i + 1) / this.trail.length; // 0 (old) → 1 (recent)
+      ctx.globalAlpha = t * 0.35;
+      ctx.beginPath();
+      ctx.arc(this.trail[i].x, this.trail[i].y, this.radius * (0.3 + 0.6 * t), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
     ctx.save();
 
     // Outer neon glow.

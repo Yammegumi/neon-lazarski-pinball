@@ -72,4 +72,4 @@ const loop = new Loop(
 );
 loop.start();
 
-console.log("%c⚡ Neon Pinball — Stage 5 (audio + best score) — MVP complete", "color:#00f0ff;font-weight:bold");
+console.log("%c⚡ Neon Pinball — Stage 6 (polish) — MVP + juice", "color:#00f0ff;font-weight:bold");

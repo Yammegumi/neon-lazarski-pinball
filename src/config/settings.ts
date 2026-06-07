@@ -49,6 +49,15 @@ export const PHYSICS = {
 /** Ball appearance + size. */
 export const BALL = {
   radius: 11,
+  /** How many past positions to keep for the motion trail. */
+  trailLength: 14,
+} as const;
+
+/** Visual "juice" — small effects that make hits feel good. */
+export const EFFECTS = {
+  shakeOnBumper: 5, // screen-shake added when a bumper is hit (px)
+  shakeMax: 11, // cap so rapid hits don't go wild
+  shakeDecay: 45, // how fast the shake settles (px per second)
 } as const;
 
 /** Flipper geometry + feel. Angles are in radians (canvas Y points DOWN,
