@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neon Pinball</title>
+    <!-- Synthwave font for the title / HUD -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- The game is drawn here. Everything (board, ball, glow) is rendered
+         onto this single canvas by our code. -->
+    <div id="app">
+      <canvas id="game"></canvas>
+
+      <!-- HTML overlay screens. The game shows/hides these based on its
+           state (see ui/screens.ts). They sit on top of the canvas. -->
+      <div id="screens">
+        <section id="screen-start" class="screen">
+          <h1 class="title">NEON <span>PINBALL</span></h1>
+          <p class="best">Best <span id="best-start">0</span></p>
+          <p class="prompt">Press <kbd>Enter</kbd> to Play</p>
+          <ul class="controls">
+            <li><kbd>←</kbd> / <kbd>A</kbd> — Left flipper</li>
+            <li><kbd>→</kbd> / <kbd>D</kbd> — Right flipper</li>
+            <li><kbd>P</kbd> / <kbd>Esc</kbd> — Pause</li>
+          </ul>
+        </section>
+
+        <section id="screen-pause" class="screen hidden">
+          <h2 class="title">PAUSED</h2>
+          <p class="prompt">Press <kbd>P</kbd> to Resume</p>
+        </section>
+
+        <section id="screen-gameover" class="screen hidden">
+          <h2 class="title">GAME OVER</h2>
+          <p class="final">Score <span id="final-score">0</span></p>
+          <p id="new-best" class="newbest hidden">★ NEW BEST! ★</p>
+          <p class="best">Best <span id="best-over">0</span></p>
+          <p class="prompt">Press <kbd>Enter</kbd> to Play Again</p>
+        </section>
+      </div>
+    </div>
+
+    <!-- Vite entry point. This loads our TypeScript and starts the game. -->
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

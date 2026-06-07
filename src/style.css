@@ -1,0 +1,174 @@
+/* ----------------------------------------------------------------------
+   Global page styling.
+   The game itself is drawn on the canvas; this file styles the page
+   *around* the canvas (background, centering) and will later style the
+   HTML overlay screens (start / pause / game over).
+---------------------------------------------------------------------- */
+
+:root {
+  /* Neon palette — single source of truth for colors used in CSS.
+     The canvas code has its own copy in config/settings.ts. */
+  --bg-top: #0a0a1a;
+  --bg-bottom: #1a0a2e;
+  --cyan: #00f0ff;
+  --magenta: #ff2bd6;
+  --text: #e8f8ff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg-bottom);
+  color: var(--text);
+  font-family: "Orbitron", system-ui, sans-serif;
+  overflow: hidden; /* no scrollbars — it's a full-screen game */
+}
+
+#app {
+  position: relative; /* anchor for the overlay screens */
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The canvas keeps the tall "pinball cabinet" aspect ratio and is
+   centered on screen. Its pixel size is set in code for crispness. */
+#game {
+  display: block;
+  height: 100vh;
+  aspect-ratio: 9 / 16;
+  max-width: 100vw;
+  box-shadow: 0 0 40px rgba(0, 240, 255, 0.25);
+}
+
+/* ----------------------------------------------------------------------
+   Overlay screens (start / pause / game over).
+   They cover the whole window and center their content. The board stays
+   visible (dimmed) behind them.
+---------------------------------------------------------------------- */
+#screens {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none; /* clicks pass through to nothing; keys drive the UI */
+}
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 40px 56px;
+  text-align: center;
+  background: rgba(10, 10, 26, 0.72);
+  backdrop-filter: blur(2px);
+  border-radius: 16px;
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.18);
+}
+
+/* Toggled by ui/screens.ts to show one screen at a time. */
+.screen.hidden {
+  display: none;
+}
+
+.title {
+  margin: 0;
+  font-weight: 900;
+  letter-spacing: 4px;
+  font-size: clamp(28px, 5vh, 56px);
+  color: var(--cyan);
+  text-shadow:
+    0 0 10px var(--cyan),
+    0 0 24px var(--cyan);
+}
+.title span {
+  color: var(--magenta);
+  text-shadow:
+    0 0 10px var(--magenta),
+    0 0 24px var(--magenta);
+}
+
+.prompt {
+  margin: 0;
+  font-size: clamp(14px, 2.4vh, 20px);
+  color: var(--text);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.final {
+  margin: 0;
+  font-size: clamp(16px, 3vh, 26px);
+  color: var(--text);
+}
+.final span {
+  color: var(--magenta);
+  text-shadow: 0 0 12px var(--magenta);
+}
+
+.best {
+  margin: 0;
+  font-size: clamp(13px, 2vh, 18px);
+  letter-spacing: 2px;
+  color: rgba(232, 248, 255, 0.75);
+}
+.best span {
+  color: var(--cyan);
+  text-shadow: 0 0 10px var(--cyan);
+}
+
+.newbest {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 2px;
+  font-size: clamp(15px, 2.6vh, 22px);
+  color: var(--lime, #39ff14);
+  text-shadow:
+    0 0 10px #39ff14,
+    0 0 22px #39ff14;
+  animation: pulse 0.7s ease-in-out infinite;
+}
+.newbest.hidden {
+  display: none;
+}
+
+.controls {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: clamp(12px, 1.8vh, 16px);
+  color: rgba(232, 248, 255, 0.8);
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.4em;
+  padding: 2px 7px;
+  border: 1px solid var(--cyan);
+  border-radius: 5px;
+  background: rgba(0, 240, 255, 0.08);
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.35);
+  font-family: "Orbitron", monospace;
+  font-size: 0.9em;
+  color: var(--cyan);
+}
