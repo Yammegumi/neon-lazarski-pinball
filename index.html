@@ -24,6 +24,13 @@
         <section id="screen-start" class="screen">
           <h1 class="title">NEON <span>PINBALL</span></h1>
           <p class="best">Best <span id="best-start">0</span></p>
+
+          <div class="panel">
+            <h3 class="panel-title">Leaderboard</h3>
+            <ol id="leaderboard-start" class="leaderboard"></ol>
+          </div>
+          <p class="stats" id="stats-start"></p>
+
           <p class="prompt">Press <kbd>Enter</kbd> to Play</p>
           <ul class="controls">
             <li><kbd>←</kbd> / <kbd>A</kbd> — Left flipper</li>
@@ -41,8 +48,20 @@
           <h2 class="title">GAME OVER</h2>
           <p class="final">Score <span id="final-score">0</span></p>
           <p id="new-best" class="newbest hidden">★ NEW BEST! ★</p>
-          <p class="best">Best <span id="best-over">0</span></p>
-          <p class="prompt">Press <kbd>Enter</kbd> to Play Again</p>
+
+          <!-- Shown only when the score makes the leaderboard. -->
+          <div id="name-entry" class="name-entry hidden">
+            <label for="name-input">Enter your initials</label>
+            <input id="name-input" maxlength="3" autocomplete="off" spellcheck="false" />
+            <span class="hint">press <kbd>Enter</kbd></span>
+          </div>
+
+          <div class="panel">
+            <h3 class="panel-title">Leaderboard</h3>
+            <ol id="leaderboard-over" class="leaderboard"></ol>
+          </div>
+
+          <p id="gameover-prompt" class="prompt">Press <kbd>Enter</kbd> to Play Again</p>
         </section>
       </div>
     </div>

@@ -6,10 +6,11 @@
 ---------------------------------------------------------------------- */
 
 /** Internal resolution of the game board, in logical pixels.
- *  Tall portrait shape, like a real pinball cabinet (9:16). */
+ *  Tall portrait shape, like a real pinball cabinet. Widened from the
+ *  original 540×960 to give room for lanes and open ball travel. */
 export const BOARD = {
-  width: 540,
-  height: 960,
+  width: 720,
+  height: 1100,
 } as const;
 
 /** Neon color palette used by the canvas renderer. */
@@ -95,5 +96,51 @@ export const SLINGSHOT = {
 /** Overall game rules. */
 export const GAME = {
   startingLives: 3,
+} as const;
+
+/** Outlane save kicker. The kicker is ALWAYS active, but a gate line above
+ *  it controls access: it's dotted (passable) by default; once a ball gets
+ *  kicked, the gate goes SOLID after a short delay and stays solid for a
+ *  while — while solid it deflects the ball inward to the centre drain. */
+export const KICKER = {
+  radius: 26, // detection zone around the kicker (px)
+  kickSpeed: 1350, // strong pop back up the lane (gate open)
+  divertSpeed: 300, // push inward-and-down toward the centre drain (gate solid)
+  gateArmDelay: 3.5, // seconds after a save before the gate goes solid
+  gateClosedTime: 90, // seconds the gate stays solid (no save possible)
+} as const;
+
+/** Combo system: chain hits quickly to raise the score multiplier. */
+export const COMBO = {
+  /** Seconds after a hit before the combo resets to zero. */
+  window: 1.2,
+  /** Highest multiplier the combo can reach. */
+  maxMultiplier: 5,
+} as const;
+
+/** Spark particle effects. */
+export const PARTICLES = {
+  gravity: 320, // px/s² — sparks fall a little after bursting
+  maxCount: 320, // safety cap on total live particles
+} as const;
+
+/** Power-ups. They appear as collectible TOKENS on the board — the ball
+ *  must hit a token to trigger the effect. */
+export const POWERUP = {
+  /** Multiball: how many EXTRA balls to add when collected. */
+  multiballCount: 2,
+  /** Slow motion: time runs at this fraction of normal speed... */
+  slowmoFactor: 0.4,
+  /** ...for this many (real) seconds. */
+  slowmoDuration: 5,
+
+  /** Collectible token appearance + lifetime. */
+  tokenRadius: 15,
+  tokenLife: 14, // seconds a token stays on the board before fading away
+  collectBonus: 100, // points for grabbing a token
+
+  /** A slow-mo token first appears after this long, then every interval. */
+  slowmoFirstSpawn: 7,
+  slowmoSpawnInterval: 13,
 } as const;
 

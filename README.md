@@ -37,9 +37,17 @@ all rendered with real-time light effects on the HTML5 Canvas.
 - [x] Ball motion trail
 - [x] Screen shake on bumper hits
 
-**Planned (post-MVP)**
-- [ ] Particle effects
-- [ ] Combo system
+**Bonus features**
+- [x] Particle effects (spark bursts on hits)
+- [x] Combo system (chain hits for up to ×5 score)
+- [x] Player statistics (games, total score, best combo, hits)
+- [x] Local leaderboard (top 5, with initials entry)
+- [x] Power-ups: collectible tokens — slow-mo spawns randomly, multiball spawns on target-row clear
+- [ ] Missions & achievements
+- [ ] Survival mode
+- [ ] Board skins
+- [ ] Dynamic music
+- [ ] Multiple boards
 
 ## 🛠️ Tech Stack
 

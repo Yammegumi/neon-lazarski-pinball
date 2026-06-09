@@ -17,6 +17,9 @@ export class Slingshot {
   constructor(
     public a: Vector2,
     public b: Vector2,
+    /** Unit vector the slingshot faces (toward the play field). It only
+     *  bounces the ball on this side; the ball passes through from behind. */
+    public front: Vector2 = new Vector2(0, -1),
     public points: number = SLINGSHOT.points,
     public color: string = COLORS.magenta,
   ) {}

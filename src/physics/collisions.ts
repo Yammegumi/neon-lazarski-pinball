@@ -42,11 +42,18 @@ export function collideBallSegment(
   b: Vector2,
   thickness: number,
   boost: number,
+  /** If given, the segment only reacts on this side (its "front"); the ball
+   *  passes through from behind. Used to make slingshots one-sided. */
+  front?: Vector2,
 ): boolean {
   const closest = closestPointOnSegment(ball.pos, a, b);
 
   // Vector from the contact point to the ball's center.
   const toBall = ball.pos.sub(closest);
+
+  // Directional: ignore hits coming from behind the front face.
+  if (front && toBall.dot(front) < 0) return false;
+
   const distance = toBall.length();
 
   const minDistance = ball.radius + thickness;

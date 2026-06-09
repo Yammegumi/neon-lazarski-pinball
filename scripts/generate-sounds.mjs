@@ -134,6 +134,12 @@ const sounds = {
   ),
   // Soft UI click for pause.
   pause: tone({ freq: 600, dur: 0.05, type: "sine", vol: 0.25 }),
+  // Power-up: a bright rising three-note sparkle.
+  powerup: sequence(
+    tone({ freq: 660, dur: 0.07, type: "square", vol: 0.3 }),
+    tone({ freq: 880, dur: 0.07, type: "square", vol: 0.3 }),
+    tone({ freq: 1320, dur: 0.12, type: "square", vol: 0.3 }),
+  ),
 };
 
 // --- Write the files --------------------------------------------------

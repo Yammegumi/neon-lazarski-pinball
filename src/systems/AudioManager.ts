@@ -20,7 +20,8 @@ export type SoundName =
   | "lifeLost"
   | "gameStart"
   | "gameOver"
-  | "pause";
+  | "pause"
+  | "powerup";
 
 export class AudioManager {
   private ctx: AudioContext;

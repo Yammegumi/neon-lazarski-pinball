@@ -45,6 +45,7 @@ const SOUNDS: SoundName[] = [
   "gameStart",
   "gameOver",
   "pause",
+  "powerup",
 ];
 void audio.loadAll(SOUNDS); // load in the background
 
@@ -61,15 +62,32 @@ window.addEventListener("pointerdown", unlockAudio);
 const input = new Input();
 const game = new Game(input, audio);
 
+// --- Leaderboard name entry ------------------------------------------
+// The initials <input> is kept separate from the game's keyboard input:
+// stopPropagation() prevents these keystrokes from reaching the global
+// key handler (so typing "AAA" doesn't flip flippers / restart).
+const nameInput = document.getElementById("name-input") as HTMLInputElement;
+nameInput.addEventListener("keydown", (e) => {
+  e.stopPropagation();
+  if (e.key === "Enter") {
+    game.submitName(nameInput.value);
+    nameInput.value = "";
+  }
+});
+// Force uppercase letters only as the player types.
+nameInput.addEventListener("input", () => {
+  nameInput.value = nameInput.value.toUpperCase().replace(/[^A-Z]/g, "");
+});
+
 // --- Loop -------------------------------------------------------------
 const loop = new Loop(
   (dt) => game.update(dt),
   () => {
     game.render(ctx!);
-    // Show the right overlay, with best score + new-best flag.
-    syncScreens(game.state, game.score.value, game.best, game.isNewBest);
+    // Show the right overlay with all its dynamic content.
+    syncScreens(game.getView());
   },
 );
 loop.start();
 
-console.log("%c⚡ Neon Pinball — Stage 6 (polish) — MVP + juice", "color:#00f0ff;font-weight:bold");
+console.log("%c⚡ Neon Pinball — Stage 9 (power-ups)", "color:#00f0ff;font-weight:bold");
