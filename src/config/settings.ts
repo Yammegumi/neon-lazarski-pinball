@@ -98,16 +98,11 @@ export const GAME = {
   startingLives: 3,
 } as const;
 
-/** Outlane save kicker. The kicker is ALWAYS active, but a gate line above
- *  it controls access: it's dotted (passable) by default; once a ball gets
- *  kicked, the gate goes SOLID after a short delay and stays solid for a
- *  while — while solid it deflects the ball inward to the centre drain. */
+/** Lane kicker — always active. When the ball is over it, it's fired in the
+ *  kicker's set direction (the direction is editable per-kicker). */
 export const KICKER = {
   radius: 26, // detection zone around the kicker (px)
-  kickSpeed: 1350, // strong pop back up the lane (gate open)
-  divertSpeed: 300, // push inward-and-down toward the centre drain (gate solid)
-  gateArmDelay: 3.5, // seconds after a save before the gate goes solid
-  gateClosedTime: 90, // seconds the gate stays solid (no save possible)
+  kickSpeed: 1350, // how hard it fires the ball
 } as const;
 
 /** Combo system: chain hits quickly to raise the score multiplier. */

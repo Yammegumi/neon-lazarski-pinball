@@ -12,6 +12,7 @@ import { BOARD } from "./config/settings.ts";
 import { Loop } from "./core/Loop.ts";
 import { Input } from "./core/Input.ts";
 import { Game } from "./core/Game.ts";
+import { loadBoardLayout, SAVED_BOARD_KEY } from "./board/BoardLayout.ts";
 import { AudioManager, type SoundName } from "./systems/AudioManager.ts";
 import { syncScreens } from "./ui/screens.ts";
 
@@ -58,36 +59,74 @@ function unlockAudio(): void {
 window.addEventListener("keydown", unlockAudio);
 window.addEventListener("pointerdown", unlockAudio);
 
-// --- Create the game --------------------------------------------------
-const input = new Input();
-const game = new Game(input, audio);
+// --- Create the game (after loading the editable board layout) --------
+async function boot(): Promise<void> {
+  const input = new Input();
+  const layout = await loadBoardLayout(); // public/boards/board.json or default
+  const game = new Game(input, audio, layout);
 
-// --- Leaderboard name entry ------------------------------------------
-// The initials <input> is kept separate from the game's keyboard input:
-// stopPropagation() prevents these keystrokes from reaching the global
-// key handler (so typing "AAA" doesn't flip flippers / restart).
-const nameInput = document.getElementById("name-input") as HTMLInputElement;
-nameInput.addEventListener("keydown", (e) => {
-  e.stopPropagation();
-  if (e.key === "Enter") {
-    game.submitName(nameInput.value);
-    nameInput.value = "";
-  }
-});
-// Force uppercase letters only as the player types.
-nameInput.addEventListener("input", () => {
-  nameInput.value = nameInput.value.toUpperCase().replace(/[^A-Z]/g, "");
-});
+  // --- Leaderboard name entry ----------------------------------------
+  // The initials <input> is kept separate from the game's keyboard input:
+  // stopPropagation() prevents these keystrokes from reaching the global
+  // key handler (so typing "AAA" doesn't flip flippers / restart).
+  const nameInput = document.getElementById("name-input") as HTMLInputElement;
+  nameInput.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") {
+      game.submitName(nameInput.value);
+      nameInput.value = "";
+    }
+  });
+  nameInput.addEventListener("input", () => {
+    nameInput.value = nameInput.value.toUpperCase().replace(/[^A-Z]/g, "");
+  });
 
-// --- Loop -------------------------------------------------------------
-const loop = new Loop(
-  (dt) => game.update(dt),
-  () => {
-    game.render(ctx!);
-    // Show the right overlay with all its dynamic content.
-    syncScreens(game.getView());
-  },
-);
-loop.start();
+  // --- Secret: the Konami code opens the hidden board editor ----------
+  // ↑ ↑ ↓ ↓ ← → ← → B A  (not shown anywhere in-game)
+  const KONAMI = [
+    "ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown",
+    "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "KeyB", "KeyA",
+  ];
+  const seq: string[] = [];
+  window.addEventListener("keydown", (e) => {
+    seq.push(e.code);
+    if (seq.length > KONAMI.length) seq.shift();
+    if (seq.length === KONAMI.length && KONAMI.every((k, i) => seq[i] === k)) {
+      window.location.href = `${import.meta.env.BASE_URL}editor.html`;
+    }
+  });
 
-console.log("%c⚡ Neon Pinball — Stage 9 (power-ups)", "color:#00f0ff;font-weight:bold");
+  // --- Load a board locally: drag a board.json onto the window --------
+  window.addEventListener("dragover", (e) => e.preventDefault());
+  window.addEventListener("drop", (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = String(reader.result);
+        const layout = JSON.parse(text);
+        localStorage.setItem(SAVED_BOARD_KEY, text); // persist across reloads
+        game.loadBoard(layout); // apply live
+      } catch {
+        alert("Nie udało się wczytać tej planszy (board.json).");
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  // --- Loop ----------------------------------------------------------
+  const loop = new Loop(
+    (dt) => game.update(dt),
+    () => {
+      game.render(ctx!);
+      syncScreens(game.getView());
+    },
+  );
+  loop.start();
+}
+
+void boot();
+
+console.log("%c⚡ Neon Pinball — board loaded from board.json", "color:#00f0ff;font-weight:bold");

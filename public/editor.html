@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Neon Pinball — Board Editor</title>
+    <style>
+      :root {
+        --bg: #0a0a1a; --panel: #14142a; --cyan: #00f0ff; --magenta: #ff2bd6;
+        --amber: #ffb000; --lime: #39ff14; --purple: #a020ff; --text: #e8f8ff;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, sans-serif; display: flex; gap: 16px; padding: 16px; }
+      h1 { font-size: 18px; margin: 0 0 4px; color: var(--cyan); }
+      #sidebar { width: 260px; flex: 0 0 260px; }
+      .panel { background: var(--panel); border: 1px solid #2a2a4a; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+      .panel h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 1px; color: #8aa; margin: 0 0 8px; }
+      button { display: block; width: 100%; margin: 4px 0; padding: 8px 10px; background: #1d1d3a; color: var(--text); border: 1px solid #33335a; border-radius: 6px; cursor: pointer; font-size: 13px; text-align: left; }
+      button:hover { border-color: var(--cyan); }
+      button.active { background: var(--cyan); color: #001018; border-color: var(--cyan); font-weight: 700; }
+      button.primary { background: var(--lime); color: #001008; border-color: var(--lime); font-weight: 700; }
+      .row { display: flex; gap: 6px; align-items: center; margin: 6px 0; font-size: 13px; }
+      .row input[type="number"] { width: 56px; background: #0d0d20; color: var(--text); border: 1px solid #33335a; border-radius: 4px; padding: 3px; }
+      .hint { font-size: 12px; color: #8aa; line-height: 1.5; }
+      kbd { background: #0d0d20; border: 1px solid #33335a; border-radius: 3px; padding: 0 4px; }
+      canvas { background: #0a0a1a; border: 1px solid #2a2a4a; border-radius: 8px; cursor: crosshair; }
+      #coords { font-size: 12px; color: #8aa; margin-top: 6px; }
+      .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+    </style>
+  </head>
+  <body>
+    <div id="sidebar">
+      <h1>⚡ Board Editor</h1>
+      <div class="hint">Design the board, then <b>Save &amp; Play</b> to test it live.</div>
+
+      <div class="panel">
+        <button id="savePlay" class="primary">▶ Save &amp; Play in game</button>
+        <button id="backBtn">← Back to game</button>
+      </div>
+
+      <div class="panel">
+        <h2>Tool</h2>
+        <button data-tool="select" class="active">▶ Select / Move / Rotate</button>
+        <button data-tool="wall"><span class="sw" style="background:var(--cyan)"></span>Wall (2 clicks)</button>
+        <button data-tool="slingshot"><span class="sw" style="background:var(--purple)"></span>Slingshot (2 clicks)</button>
+        <button data-tool="bumper"><span class="sw" style="background:var(--amber)"></span>Bumper</button>
+        <button data-tool="target"><span class="sw" style="background:var(--lime)"></span>Target</button>
+        <button data-tool="kicker"><span class="sw" style="background:var(--lime)"></span>Kicker (rotatable)</button>
+      </div>
+
+      <div class="panel">
+        <h2>Options</h2>
+        <label class="row"><input type="checkbox" id="snap" checked /> Snap to grid</label>
+        <div class="row">Grid <input type="number" id="gridSize" value="20" min="2" max="100" /> px</div>
+      </div>
+
+      <div class="panel">
+        <h2>File</h2>
+        <button id="exportBtn">⬇ Export board.json</button>
+        <button id="importBtn">⬆ Import board.json</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none" />
+        <button id="loadDefault">↺ Load default board</button>
+        <button id="clearBtn">🗑 Clear all</button>
+      </div>
+
+      <div class="panel">
+        <h2>How to</h2>
+        <div class="hint">
+          • <b>Wall / Slingshot</b>: click start, click end.<br />
+          • <b>Bumper / Target / Kicker</b>: click to place.<br />
+          • <b>Select</b>: click an item, drag to move; drag an <i>endpoint</i> to reshape.<br />
+          • <b>Rotate</b>: select a Slingshot or Kicker, drag its <span style="color:var(--purple)">⟳ handle</span> to aim it.<br />
+          • <kbd>Del</kbd> removes, <kbd>Esc</kbd> cancels a line.<br /><br />
+          Flippers (faint magenta) are fixed — a reference for the bottom.
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <canvas id="c"></canvas>
+      <div id="coords"></div>
+    </div>
+
+    <script>
+      const BOARD_W = 720, BOARD_H = 1100, BUMPER_R = 26, TARGET_R = 11, KICKER_R = 18;
+      const SAVED_KEY = "neon-pinball-board";
+
+      const REF_FLIPPERS = [
+        { pivot: [250, 958], swing: 0.44 },
+        { pivot: [470, 958], swing: Math.PI - 0.44 },
+      ];
+
+      const DEFAULT_BOARD = {
+        version: 1,
+        walls: [
+          { a: [16, 16], b: [704, 16] }, { a: [16, 16], b: [16, 800] },
+          { a: [704, 16], b: [704, 800] }, { a: [16, 800], b: [250, 958] },
+          { a: [704, 800], b: [470, 958] },
+        ],
+        bumpers: [{ pos: [165, 300] }, { pos: [555, 300] }, { pos: [210, 470] }, { pos: [510, 470] }],
+        targets: [{ pos: [140, 160] }, { pos: [215, 160] }, { pos: [505, 160] }, { pos: [580, 160] }],
+        slingshots: [
+          { a: [85, 715], b: [150, 785], front: [0.73, -0.68] },
+          { a: [635, 715], b: [570, 785], front: [-0.73, -0.68] },
+        ],
+        kickers: [],
+      };
+
+      function blank() { return { version: 1, walls: [], bumpers: [], targets: [], slingshots: [], kickers: [] }; }
+      function normalize(d) {
+        const s = { version: 1, walls: d.walls || [], bumpers: d.bumpers || [], targets: d.targets || [], slingshots: d.slingshots || [], kickers: d.kickers || [] };
+        s.slingshots.forEach((x) => { if (!x.front) x.front = frontTowardCenter(x.a, x.b); });
+        return s;
+      }
+
+      // Start from a saved board if there is one, else the default.
+      let state = structuredClone(DEFAULT_BOARD);
+      try { const saved = localStorage.getItem(SAVED_KEY); if (saved) state = normalize(JSON.parse(saved)); } catch {}
+
+      let tool = "select";
+      let lineStart = null;
+      let mouse = [0, 0];
+      let selected = null;
+      let dragging = null;
+
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+      let scale = 0.6;
+
+      function fit() {
+        scale = Math.min((window.innerHeight - 80) / BOARD_H, (window.innerWidth - 330) / BOARD_W, 0.85);
+        canvas.width = BOARD_W * scale; canvas.height = BOARD_H * scale; draw();
+      }
+      window.addEventListener("resize", fit);
+
+      function toBoard(e) {
+        const r = canvas.getBoundingClientRect();
+        let x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
+        if (document.getElementById("snap").checked) {
+          const g = +document.getElementById("gridSize").value || 1;
+          x = Math.round(x / g) * g; y = Math.round(y / g) * g;
+        }
+        return [Math.max(0, Math.min(BOARD_W, Math.round(x))), Math.max(0, Math.min(BOARD_H, Math.round(y)))];
+      }
+
+      function frontTowardCenter(a, b) {
+        let nx = -(b[1] - a[1]), ny = b[0] - a[0];
+        const len = Math.hypot(nx, ny) || 1; nx /= len; ny /= len;
+        const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        if (nx * (BOARD_W / 2 - mx) + ny * (BOARD_H / 2 - my) < 0) { nx = -nx; ny = -ny; }
+        return [nx, ny];
+      }
+      function norm(v) { const l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; }
+      function mid(a, b) { return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]; }
+      function anchorOf(t, el) { return t === "kicker" ? el.pos : mid(el.a, el.b); }
+      function dirOf(t, el) { return t === "kicker" ? el.dir : el.front; }
+      function handlePos(t, el) { const a = anchorOf(t, el), d = dirOf(t, el); return [a[0] + d[0] * 50, a[1] + d[1] * 50]; }
+
+      function line(a, b) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+      function dot(p, col, r = 4) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.fill(); }
+      function circle(p, r, col) { ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(p[0], p[1], r, 0, 7); ctx.stroke(); }
+      function diamond(p, r, col) { ctx.save(); ctx.translate(p[0], p[1]); ctx.rotate(Math.PI / 4); ctx.fillStyle = col; ctx.fillRect(-r, -r, r * 2, r * 2); ctx.restore(); }
+      function arrow(from, dir, col, len = 28) {
+        const d = norm(dir), tip = [from[0] + d[0] * len, from[1] + d[1] * len], perp = [-d[1], d[0]];
+        ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 3; ctx.lineCap = "round";
+        line(from, tip);
+        const back = [tip[0] - d[0] * 10, tip[1] - d[1] * 10];
+        ctx.beginPath(); ctx.moveTo(tip[0], tip[1]);
+        ctx.lineTo(back[0] + perp[0] * 6, back[1] + perp[1] * 6);
+        ctx.lineTo(back[0] - perp[0] * 6, back[1] - perp[1] * 6);
+        ctx.closePath(); ctx.fill();
+      }
+      function isSel(t, i) { return selected && selected.type === t && selected.index === i; }
+
+      function draw() {
+        ctx.save(); ctx.scale(scale, scale); ctx.clearRect(0, 0, BOARD_W, BOARD_H);
+        const g = +document.getElementById("gridSize").value || 20;
+        ctx.strokeStyle = "#1a1a33"; ctx.lineWidth = 1; ctx.beginPath();
+        for (let x = 0; x <= BOARD_W; x += g) { ctx.moveTo(x, 0); ctx.lineTo(x, BOARD_H); }
+        for (let y = 0; y <= BOARD_H; y += g) { ctx.moveTo(0, y); ctx.lineTo(BOARD_W, y); }
+        ctx.stroke();
+        ctx.strokeStyle = "#2a2a4a"; ctx.lineWidth = 2; ctx.strokeRect(0, 0, BOARD_W, BOARD_H);
+
+        ctx.strokeStyle = "rgba(255,43,214,0.35)"; ctx.lineWidth = 8; ctx.lineCap = "round";
+        for (const f of REF_FLIPPERS) line(f.pivot, [f.pivot[0] + Math.cos(f.swing) * 92, f.pivot[1] + Math.sin(f.swing) * 92]);
+        ctx.lineWidth = 1;
+
+        state.walls.forEach((w, i) => {
+          ctx.strokeStyle = isSel("wall", i) ? "#fff" : "#00f0ff"; ctx.lineWidth = isSel("wall", i) ? 5 : 3; ctx.lineCap = "round";
+          line(w.a, w.b); dot(w.a, "#00f0ff"); dot(w.b, "#00f0ff");
+        });
+        state.slingshots.forEach((s, i) => {
+          ctx.strokeStyle = isSel("slingshot", i) ? "#fff" : "#a020ff"; ctx.lineWidth = isSel("slingshot", i) ? 7 : 5; ctx.lineCap = "round";
+          line(s.a, s.b); dot(s.a, "#a020ff"); dot(s.b, "#a020ff");
+          arrow(mid(s.a, s.b), s.front, "rgba(160,32,255,0.85)", 26);
+        });
+        state.bumpers.forEach((b, i) => circle(b.pos, BUMPER_R, isSel("bumper", i) ? "#fff" : "#ffb000"));
+        state.targets.forEach((t, i) => diamond(t.pos, TARGET_R, isSel("target", i) ? "#fff" : "#39ff14"));
+        state.kickers.forEach((k, i) => { const col = isSel("kicker", i) ? "#fff" : "#39ff14"; dot(k.pos, col, 6); arrow(k.pos, k.dir, col, 30); });
+
+        if (selected && (selected.type === "slingshot" || selected.type === "kicker")) {
+          const el = state[selected.type + "s"][selected.index];
+          const h = handlePos(selected.type, el), a = anchorOf(selected.type, el);
+          ctx.strokeStyle = "#a020ff"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5; line(a, h); ctx.setLineDash([]);
+          dot(h, "#a020ff", 7); dot(h, "#fff", 3);
+        }
+        if ((tool === "wall" || tool === "slingshot") && lineStart) {
+          ctx.strokeStyle = tool === "slingshot" ? "rgba(160,32,255,0.6)" : "rgba(0,240,255,0.6)";
+          ctx.setLineDash([6, 6]); ctx.lineWidth = 2; line(lineStart, mouse); ctx.setLineDash([]); dot(lineStart, "#fff");
+        }
+        ctx.restore();
+        document.getElementById("coords").textContent =
+          `x: ${mouse[0]}, y: ${mouse[1]}  |  walls ${state.walls.length} · slingshots ${state.slingshots.length} · bumpers ${state.bumpers.length} · targets ${state.targets.length} · kickers ${state.kickers.length}`;
+      }
+
+      function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
+      function distToSeg(p, a, b) {
+        const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy || 1;
+        let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2; t = Math.max(0, Math.min(1, t));
+        return dist(p, [a[0] + t * dx, a[1] + t * dy]);
+      }
+      function hitTest(p) {
+        if (selected && (selected.type === "slingshot" || selected.type === "kicker")) {
+          const el = state[selected.type + "s"][selected.index];
+          if (dist(p, handlePos(selected.type, el)) < 12) return { type: selected.type, index: selected.index, part: "rotate" };
+        }
+        for (let i = state.walls.length - 1; i >= 0; i--) {
+          const w = state.walls[i];
+          if (dist(p, w.a) < 12) return { type: "wall", index: i, part: "a" };
+          if (dist(p, w.b) < 12) return { type: "wall", index: i, part: "b" };
+          if (distToSeg(p, w.a, w.b) < 8) return { type: "wall", index: i, part: "whole" };
+        }
+        for (let i = state.slingshots.length - 1; i >= 0; i--) {
+          const s = state.slingshots[i];
+          if (dist(p, s.a) < 12) return { type: "slingshot", index: i, part: "a" };
+          if (dist(p, s.b) < 12) return { type: "slingshot", index: i, part: "b" };
+          if (distToSeg(p, s.a, s.b) < 9) return { type: "slingshot", index: i, part: "whole" };
+        }
+        for (let i = state.kickers.length - 1; i >= 0; i--)
+          if (dist(p, state.kickers[i].pos) < KICKER_R) return { type: "kicker", index: i, part: "whole" };
+        for (let i = state.bumpers.length - 1; i >= 0; i--)
+          if (dist(p, state.bumpers[i].pos) < BUMPER_R) return { type: "bumper", index: i, part: "whole" };
+        for (let i = state.targets.length - 1; i >= 0; i--)
+          if (dist(p, state.targets[i].pos) < TARGET_R + 5) return { type: "target", index: i, part: "whole" };
+        return null;
+      }
+
+      canvas.addEventListener("mousedown", (e) => {
+        const p = toBoard(e);
+        if (tool === "wall" || tool === "slingshot") {
+          if (!lineStart) lineStart = p;
+          else {
+            if (tool === "wall") state.walls.push({ a: lineStart, b: p });
+            else state.slingshots.push({ a: lineStart, b: p, front: frontTowardCenter(lineStart, p) });
+            lineStart = null;
+          }
+        } else if (tool === "bumper") state.bumpers.push({ pos: p });
+        else if (tool === "target") state.targets.push({ pos: p });
+        else if (tool === "kicker") state.kickers.push({ pos: p, dir: [0, -1] });
+        else {
+          const hit = hitTest(p);
+          if (!hit || hit.part !== "rotate") selected = hit ? { type: hit.type, index: hit.index } : null;
+          if (hit) dragging = { ...hit, last: p };
+        }
+        draw();
+      });
+      canvas.addEventListener("mousemove", (e) => {
+        mouse = toBoard(e);
+        if (dragging) {
+          const p = mouse, el = state[dragging.type === "wall" ? "walls" : dragging.type + "s"][dragging.index];
+          if (dragging.part === "rotate") {
+            const a = anchorOf(dragging.type, el), d = norm([p[0] - a[0], p[1] - a[1]]);
+            if (dragging.type === "kicker") el.dir = d; else el.front = d;
+          } else if (dragging.part === "a") el.a = p;
+          else if (dragging.part === "b") el.b = p;
+          else {
+            const dx = p[0] - dragging.last[0], dy = p[1] - dragging.last[1];
+            if (dragging.type === "wall" || dragging.type === "slingshot") { el.a = [el.a[0] + dx, el.a[1] + dy]; el.b = [el.b[0] + dx, el.b[1] + dy]; }
+            else el.pos = p;
+          }
+          dragging.last = p;
+        }
+        draw();
+      });
+      window.addEventListener("mouseup", () => { dragging = null; });
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { lineStart = null; draw(); }
+        if ((e.key === "Delete" || e.key === "Backspace") && selected) {
+          state[selected.type === "wall" ? "walls" : selected.type + "s"].splice(selected.index, 1);
+          selected = null; draw();
+        }
+      });
+
+      document.querySelectorAll("[data-tool]").forEach((btn) =>
+        btn.addEventListener("click", () => {
+          tool = btn.dataset.tool; lineStart = null;
+          document.querySelectorAll("[data-tool]").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          canvas.style.cursor = tool === "select" ? "pointer" : "crosshair"; draw();
+        }),
+      );
+      document.getElementById("snap").addEventListener("change", draw);
+      document.getElementById("gridSize").addEventListener("input", draw);
+
+      function currentData() {
+        return { version: 1, walls: state.walls, bumpers: state.bumpers, targets: state.targets, slingshots: state.slingshots, kickers: state.kickers };
+      }
+      document.getElementById("exportBtn").addEventListener("click", () => {
+        const blob = new Blob([JSON.stringify(currentData(), null, 2)], { type: "application/json" });
+        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "board.json"; a.click();
+      });
+      document.getElementById("importBtn").addEventListener("click", () => document.getElementById("importFile").click());
+      document.getElementById("importFile").addEventListener("change", (e) => {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => { try { state = normalize(JSON.parse(reader.result)); selected = null; lineStart = null; draw(); } catch { alert("Could not read that JSON file."); } };
+        reader.readAsText(file);
+      });
+      document.getElementById("loadDefault").addEventListener("click", () => { state = structuredClone(DEFAULT_BOARD); selected = null; lineStart = null; draw(); });
+      document.getElementById("clearBtn").addEventListener("click", () => { if (confirm("Clear everything?")) { state = blank(); selected = null; draw(); } });
+
+      // Save the board to the game and go play it.
+      document.getElementById("savePlay").addEventListener("click", () => {
+        try { localStorage.setItem(SAVED_KEY, JSON.stringify(currentData())); } catch {}
+        window.location.href = "./";
+      });
+      document.getElementById("backBtn").addEventListener("click", () => { window.location.href = "./"; });
+
+      fit();
+    </script>
+  </body>
+</html>

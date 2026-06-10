@@ -31,6 +31,8 @@ import { Bumper } from "../entities/Bumper.ts";
 import { Target } from "../entities/Target.ts";
 import { Slingshot } from "../entities/Slingshot.ts";
 import { PowerUp } from "../entities/PowerUp.ts";
+import { LaneKicker } from "../entities/LaneKicker.ts";
+import type { BoardLayout } from "../board/BoardLayout.ts";
 import { ScoreSystem } from "../systems/ScoreSystem.ts";
 import { LivesSystem } from "../systems/LivesSystem.ts";
 import { AudioManager } from "../systems/AudioManager.ts";
@@ -56,7 +58,6 @@ import {
 
 const W = BOARD.width;
 const H = BOARD.height;
-const M = 16; // wall margin from the canvas edge
 
 export class Game {
   /** Current state. Starts on the title screen. */
@@ -92,70 +93,62 @@ export class Game {
   /** Spark effects (bumper/target/slingshot hits, drains). */
   private particles = new ParticleSystem();
 
-  private walls: Wall[];
+  // These come from the (re)loadable board layout — assigned in buildBoard().
+  private walls!: Wall[];
+  private bumpers!: Bumper[];
+  private targets!: Target[];
+  private slingshots!: Slingshot[];
+  private laneKickers!: LaneKicker[];
+  // Flippers are fixed (not part of the editable layout).
   private leftFlipper: Flipper;
   private rightFlipper: Flipper;
   private flippers: Flipper[];
-  private bumpers: Bumper[];
-  private targets: Target[];
-  private slingshots: Slingshot[];
   /** All balls currently in play (more than one during Multiball). */
   private balls: Ball[] = [];
 
   constructor(
     private input: Input,
     private audio: AudioManager,
+    /** Walls / bumpers / targets come from here (editable via the editor →
+     *  public/boards/board.json). Flippers, slingshots and power-up spawns
+     *  are still fixed in code below. */
+    layout: BoardLayout,
   ) {
-    // --- Board walls. Verticals down each side, then angled lower walls
-    //     that funnel the ball toward the flippers. The gap between the
-    //     flipper tips at the bottom is the DRAIN (where a ball is lost).
-    //     "Open Speedway" layout: a tall, wide cabinet with a clear central
-    //     travel lane so the ball can build speed down the middle. ---
-    this.walls = [
-      new Wall(new Vector2(M, M), new Vector2(W - M, M)), // top
-      new Wall(new Vector2(M, M), new Vector2(M, 800)), // left
-      new Wall(new Vector2(W - M, M), new Vector2(W - M, 800)), // right
-      new Wall(new Vector2(M, 800), new Vector2(250, 958)), // left funnel → flipper
-      new Wall(new Vector2(W - M, 800), new Vector2(W - 250, 958)), // right funnel → flipper
-    ];
-
-    // --- Flippers: a "V" with a drain gap between the tips. ---
+    // --- Flippers: a "V" with a drain gap between the tips (fixed). ---
     const SWING = 0.44; // ~25°
     this.leftFlipper = new Flipper(new Vector2(250, 958), SWING, -SWING);
     this.rightFlipper = new Flipper(new Vector2(W - 250, 958), Math.PI - SWING, Math.PI + SWING);
     this.flippers = [this.leftFlipper, this.rightFlipper];
 
-    // --- Bumpers: pushed to the SIDES (two upper, two mid) so the centre
-    //     column stays open for fast vertical runs. ---
-    this.bumpers = [
-      new Bumper(new Vector2(165, 300)),
-      new Bumper(new Vector2(W - 165, 300)),
-      new Bumper(new Vector2(210, 470)),
-      new Bumper(new Vector2(W - 210, 470)),
-    ];
+    // Everything else (walls, bumpers, targets, slingshots, kickers) comes
+    // from the editable layout — and can be swapped at runtime via loadBoard().
+    this.buildBoard(layout);
+  }
 
-    // --- Targets: two banks split to the upper-left and upper-right,
-    //     leaving the top-centre open. ---
-    this.targets = [
-      new Target(new Vector2(140, 160)),
-      new Target(new Vector2(215, 160)),
-      new Target(new Vector2(W - 215, 160)),
-      new Target(new Vector2(W - 140, 160)),
-    ];
+  /** (Re)build all the editable elements from a board layout. */
+  private buildBoard(layout: BoardLayout): void {
+    this.walls = layout.walls.map(
+      (w) => new Wall(new Vector2(w.a[0], w.a[1]), new Vector2(w.b[0], w.b[1])),
+    );
+    this.bumpers = layout.bumpers.map((b) => new Bumper(new Vector2(b.pos[0], b.pos[1])));
+    this.targets = layout.targets.map((t) => new Target(new Vector2(t.pos[0], t.pos[1])));
+    this.slingshots = (layout.slingshots ?? []).map((s) => {
+      const a = new Vector2(s.a[0], s.a[1]);
+      const b = new Vector2(s.b[0], s.b[1]);
+      const front = s.front ? new Vector2(s.front[0], s.front[1]) : this.frontTowardCenter(a, b);
+      return new Slingshot(a, b, front);
+    });
+    this.laneKickers = (layout.kickers ?? []).map(
+      (k) => new LaneKicker(new Vector2(k.pos[0], k.pos[1]), new Vector2(k.dir[0], k.dir[1])),
+    );
+  }
 
-    // --- Slingshots: angled kickers just above each flipper. They are
-    //     ONE-SIDED (face the play field), so the ball only bounces off the
-    //     inner face and slides past on the outer side. ---
-    const lsa = new Vector2(85, 715);
-    const lsb = new Vector2(150, 785);
-    const rsa = new Vector2(W - 85, 715);
-    const rsb = new Vector2(W - 150, 785);
-    this.slingshots = [
-      new Slingshot(lsa, lsb, this.frontTowardCenter(lsa, lsb)),
-      new Slingshot(rsa, rsb, this.frontTowardCenter(rsa, rsb)),
-    ];
-
-    // No balls until the first launch (so nothing renders on the title screen).
+  /** Swap in a new board layout live, and return to the title screen. */
+  loadBoard(layout: BoardLayout): void {
+    this.buildBoard(layout);
+    this.state = GameState.Start;
+    this.balls = [];
+    this.powerups = [];
   }
 
   /** Perpendicular to segment a→b, pointing toward the board centre. Used to
@@ -474,6 +467,14 @@ export class Game {
       }
     }
 
+    // Lane kickers (always on) — fire the ball in their direction.
+    for (const kicker of this.laneKickers) {
+      if (kicker.tryKick(ball)) {
+        this.audio.play("powerup");
+        this.particles.burst(ball.pos.clone(), COLORS.lime, 14);
+      }
+    }
+
     return wallHit;
   }
 
@@ -497,6 +498,7 @@ export class Game {
     for (const target of this.targets) target.render(ctx);
     for (const sling of this.slingshots) sling.render(ctx);
     for (const bumper of this.bumpers) bumper.render(ctx);
+    for (const kicker of this.laneKickers) kicker.render(ctx);
     for (const token of this.powerups) token.render(ctx);
     for (const flipper of this.flippers) flipper.render(ctx);
     for (const ball of this.balls) ball.render(ctx); // 1+ during Multiball
